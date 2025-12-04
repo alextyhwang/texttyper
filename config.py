@@ -12,7 +12,7 @@ DEFAULT_THINK_PAUSE_MAX = 3.0
 DEFAULT_MICRO_PAUSE_MIN = 0.05
 DEFAULT_MICRO_PAUSE_MAX = 0.15
 
-HOTKEY_COMBO = "<cmd>+<shift>+t" if IS_MAC else "<ctrl>+<shift>+t"
+HOTKEY_COMBO = "<cmd>+<shift>+b" if IS_MAC else "<ctrl>+<shift>+b"
 
 COMMON_BIGRAMS = {
     "th", "he", "in", "er", "an", "re", "on", "at", "en", "nd",

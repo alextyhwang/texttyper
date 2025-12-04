@@ -96,6 +96,7 @@ class Typer:
         self._last_burst_count = 0
         self._next_burst_at = random.randint(self.burst_min, self.burst_max)
         self.timing.reset()
+        self.timing.start_new_burst()
         
         instructions = self.parser.parse(markdown_text)
         total_chars = self.parser.get_plain_text_length(markdown_text)
@@ -112,6 +113,11 @@ class Typer:
                     if not self._check_pause():
                         return
                     
+                    if prev_char == ' ':
+                        word_pause = self.timing.get_word_pause()
+                        if word_pause > 0:
+                            time.sleep(word_pause)
+                    
                     self._type_with_possible_error(char, prev_char)
                     prev_char = char
                     typed_text += char
@@ -123,6 +129,7 @@ class Typer:
                     if self._should_burst_pause(typed_text):
                         pause_time = self.timing.get_think_pause()
                         time.sleep(pause_time)
+                        self.timing.start_new_burst()
             
             elif instruction.type == InstructionType.BOLD_START:
                 self._toggle_bold()
