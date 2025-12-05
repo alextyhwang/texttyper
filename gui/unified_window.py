@@ -14,12 +14,15 @@ ctk.set_appearance_mode("dark")
 class UnifiedWindow(ctk.CTk):
     STATE_IDLE = "idle"
     STATE_EXPANDED = "expanded"
+    STATE_COUNTDOWN = "countdown"
     STATE_TYPING = "typing"
     
     COLLAPSED_WIDTH = 340
     COLLAPSED_HEIGHT = 220
     EXPANDED_WIDTH = 340
     EXPANDED_HEIGHT = 490
+    PERMISSION_WIDTH = 380
+    PERMISSION_HEIGHT = 340
 
     BG_PRIMARY = "#1a1a1a"
     BG_SECONDARY = "#2a2a2a"
@@ -30,6 +33,7 @@ class UnifiedWindow(ctk.CTk):
     TEXT_MUTED = "#666666"
     ACCENT = "#10a37f"
     ACCENT_HOVER = "#1db88e"
+    WARNING = "#f0ad4e"
 
     def __init__(self, on_start: Optional[Callable] = None,
                  on_pause: Optional[Callable] = None,
@@ -45,6 +49,7 @@ class UnifiedWindow(ctk.CTk):
         self._state = self.STATE_IDLE
         self._is_paused = False
         self._clipboard_loaded = False
+        self._permission_dialog = None
         
         self.title("TextTyper")
         self.geometry(f"{self.COLLAPSED_WIDTH}x{self.COLLAPSED_HEIGHT}+50+50")
@@ -73,6 +78,7 @@ class UnifiedWindow(ctk.CTk):
         self._create_header()
         self._create_text_input()
         self._create_settings_section()
+        self._create_countdown_section()
         self._create_progress_section()
         self._create_buttons_section()
         
@@ -86,21 +92,19 @@ class UnifiedWindow(ctk.CTk):
             height=28
         )
         self.header_frame.grid(row=0, column=0, sticky="ew")
+        self.header_frame.grid_columnconfigure(1, weight=1)
         self.header_frame.grid_propagate(False)
         
-        inner_frame = ctk.CTkFrame(self.header_frame, fg_color="transparent")
-        inner_frame.place(relx=0.5, rely=0.5, anchor="center")
-        
         self.title_label = ctk.CTkLabel(
-            inner_frame,
+            self.header_frame,
             text="TextTyper",
             font=ctk.CTkFont(size=12, weight="bold"),
             text_color=self.TEXT_SECONDARY
         )
-        self.title_label.pack(side="left", padx=(0, 8))
+        self.title_label.grid(row=0, column=0, padx=12, pady=6, sticky="w")
         
         self.close_btn = ctk.CTkButton(
-            inner_frame,
+            self.header_frame,
             text="",
             width=10,
             height=10,
@@ -109,7 +113,7 @@ class UnifiedWindow(ctk.CTk):
             hover_color="#ff3b30",
             command=self._on_close
         )
-        self.close_btn.pack(side="left")
+        self.close_btn.grid(row=0, column=2, padx=(0, 12), pady=6)
 
     def _create_text_input(self):
         self.input_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -186,9 +190,30 @@ class UnifiedWindow(ctk.CTk):
         setattr(self, f"{label.lower()}_slider", slider)
         setattr(self, f"{label.lower()}_value", value_label)
 
+    def _create_countdown_section(self):
+        self.countdown_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.countdown_frame.grid(row=3, column=0, padx=14, pady=6, sticky="ew")
+        self.countdown_frame.grid_columnconfigure(0, weight=1)
+        
+        self.countdown_label = ctk.CTkLabel(
+            self.countdown_frame,
+            text="",
+            font=ctk.CTkFont(size=24, weight="bold"),
+            text_color=self.WARNING
+        )
+        self.countdown_label.grid(row=0, column=0)
+        
+        self.countdown_hint = ctk.CTkLabel(
+            self.countdown_frame,
+            text="Click where you want to type...",
+            font=ctk.CTkFont(size=11),
+            text_color=self.TEXT_MUTED
+        )
+        self.countdown_hint.grid(row=1, column=0, pady=(2, 0))
+
     def _create_progress_section(self):
         self.progress_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.progress_frame.grid(row=3, column=0, padx=14, pady=6, sticky="ew")
+        self.progress_frame.grid(row=4, column=0, padx=14, pady=6, sticky="ew")
         self.progress_frame.grid_columnconfigure(0, weight=1)
         
         self.progress_bar = ctk.CTkProgressBar(
@@ -223,46 +248,21 @@ class UnifiedWindow(ctk.CTk):
 
     def _create_buttons_section(self):
         self.buttons_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.buttons_frame.grid(row=4, column=0, padx=14, pady=(6, 10), sticky="ew")
+        self.buttons_frame.grid(row=5, column=0, padx=14, pady=(6, 10), sticky="ew")
         self.buttons_frame.grid_columnconfigure(0, weight=1)
         
-        self.start_container = ctk.CTkFrame(self.buttons_frame, fg_color="transparent")
-        self.start_container.grid(row=0, column=0, sticky="ew")
-        self.start_container.grid_columnconfigure(0, weight=0)
-        self.start_container.grid_columnconfigure(1, weight=1)
-        
         self.start_btn = ctk.CTkButton(
-            self.start_container,
-            text="Start",
+            self.buttons_frame,
+            text="",
             font=ctk.CTkFont(size=14, weight="bold"),
             fg_color=self.ACCENT,
             hover_color=self.ACCENT_HOVER,
             text_color=self.TEXT_PRIMARY,
             corner_radius=8,
-            width=90,
-            height=44,
+            height=56,
             command=self._on_start_click
         )
-        self.start_btn.grid(row=0, column=0, rowspan=2, sticky="ns")
-        
-        self.stats_label = ctk.CTkLabel(
-            self.start_container,
-            text="0 chars • ~0s",
-            font=ctk.CTkFont(size=12),
-            text_color=self.TEXT_PRIMARY,
-            anchor="e"
-        )
-        self.stats_label.grid(row=0, column=1, sticky="e", padx=(10, 0), pady=(4, 0))
-        
-        hotkey_text = "⌘⇧B" if IS_MAC else "Ctrl+Shift+B"
-        self.hotkey_label = ctk.CTkLabel(
-            self.start_container,
-            text=hotkey_text,
-            font=ctk.CTkFont(size=9),
-            text_color=self.TEXT_MUTED,
-            anchor="e"
-        )
-        self.hotkey_label.grid(row=1, column=1, sticky="e", padx=(10, 0), pady=(0, 4))
+        self.start_btn.grid(row=0, column=0, sticky="ew")
         
         self._update_start_button()
         
@@ -279,6 +279,18 @@ class UnifiedWindow(ctk.CTk):
             command=self._toggle_expand
         )
         self.expand_btn.grid(row=1, column=0, pady=(2, 0))
+        
+        self.cancel_countdown_btn = ctk.CTkButton(
+            self.buttons_frame,
+            text="Cancel",
+            font=ctk.CTkFont(size=14, weight="bold"),
+            fg_color="#ff5f57",
+            hover_color="#ff3b30",
+            text_color=self.TEXT_PRIMARY,
+            corner_radius=8,
+            height=40,
+            command=self._on_stop_click
+        )
         
         self.pause_btn = ctk.CTkButton(
             self.buttons_frame,
@@ -343,6 +355,7 @@ class UnifiedWindow(ctk.CTk):
 
     def _update_start_button(self):
         text = self._get_text_content()
+        hotkey_text = "⌘⇧B" if IS_MAC else "Ctrl+Shift+B"
         
         if text and text.strip():
             from engine.markdown_parser import MarkdownParser
@@ -357,42 +370,49 @@ class UnifiedWindow(ctk.CTk):
             else:
                 time_str = f"~{int(est_seconds // 60)}m {int(est_seconds % 60)}s"
             
-            if hasattr(self, 'stats_label'):
-                self.stats_label.configure(text=f"{char_count} chars • {time_str}")
+            self.start_btn.configure(text=f"Start\n{char_count} chars • {time_str}  |  {hotkey_text}")
         else:
-            if hasattr(self, 'stats_label'):
-                self.stats_label.configure(text="0 chars • ~0s")
+            self.start_btn.configure(text=f"Start\n{hotkey_text}")
 
     def _update_visibility(self):
+        self.countdown_frame.grid_remove()
+        self.progress_frame.grid_remove()
+        self.cancel_countdown_btn.grid_remove()
+        self.pause_btn.grid_remove()
+        self.stop_btn.grid_remove()
+        
         if self._state == self.STATE_IDLE:
             self.geometry(f"{self.COLLAPSED_WIDTH}x{self.COLLAPSED_HEIGHT}")
             self.input_frame.grid()
             self.settings_frame.grid_remove()
-            self.progress_frame.grid_remove()
-            self.start_container.grid()
+            self.start_btn.grid()
             self.expand_btn.grid()
             self.expand_btn.configure(text="▼")
-            self.pause_btn.grid_remove()
-            self.stop_btn.grid_remove()
             self._update_start_button()
             
         elif self._state == self.STATE_EXPANDED:
             self.geometry(f"{self.EXPANDED_WIDTH}x{self.EXPANDED_HEIGHT}")
             self.input_frame.grid()
             self.settings_frame.grid()
-            self.progress_frame.grid_remove()
-            self.start_container.grid()
+            self.start_btn.grid()
             self.expand_btn.grid()
             self.expand_btn.configure(text="▲")
-            self.pause_btn.grid_remove()
-            self.stop_btn.grid_remove()
+            
+        elif self._state == self.STATE_COUNTDOWN:
+            self.geometry(f"{self.COLLAPSED_WIDTH}x{self.COLLAPSED_HEIGHT}")
+            self.input_frame.grid()
+            self.settings_frame.grid_remove()
+            self.countdown_frame.grid()
+            self.start_btn.grid_remove()
+            self.expand_btn.grid_remove()
+            self.cancel_countdown_btn.grid(row=0, column=0, sticky="ew")
             
         elif self._state == self.STATE_TYPING:
             self.geometry(f"{self.COLLAPSED_WIDTH}x{self.COLLAPSED_HEIGHT}")
             self.input_frame.grid()
             self.settings_frame.grid_remove()
             self.progress_frame.grid()
-            self.start_container.grid_remove()
+            self.start_btn.grid_remove()
             self.expand_btn.grid_remove()
             self.buttons_frame.grid_columnconfigure(0, weight=1)
             self.buttons_frame.grid_columnconfigure(1, weight=1)
@@ -427,7 +447,7 @@ class UnifiedWindow(ctk.CTk):
             if not text or not text.strip():
                 return
         
-        self._state = self.STATE_TYPING
+        self._state = self.STATE_COUNTDOWN
         self._is_paused = False
         self._update_visibility()
         
@@ -437,6 +457,13 @@ class UnifiedWindow(ctk.CTk):
 
     def trigger_start(self):
         self._on_start_click()
+
+    def show_countdown(self, seconds: int):
+        self.countdown_label.configure(text=f"{seconds}")
+
+    def hide_countdown(self):
+        self._state = self.STATE_TYPING
+        self._update_visibility()
 
     def _on_pause_click(self):
         if self._is_paused:
@@ -494,9 +521,6 @@ class UnifiedWindow(ctk.CTk):
             seconds = int(remaining_seconds % 60)
             self.time_remaining.configure(text=f"{minutes:02d}:{seconds:02d}")
 
-    def show_countdown(self, seconds: int):
-        self.start_btn.configure(text=f"Starting in {seconds}...")
-
     def on_typing_complete(self):
         self._state = self.STATE_IDLE
         self._is_paused = False
@@ -508,3 +532,112 @@ class UnifiedWindow(ctk.CTk):
         self.text_input.delete("0.0", "end")
         self.text_input.insert("0.0", text)
         self._update_start_button()
+
+    def show_permission_dialog(self, on_open_accessibility: Callable, 
+                                on_open_input_monitoring: Callable,
+                                on_quit: Callable):
+        if self._permission_dialog is not None:
+            return
+        
+        self.geometry(f"{self.PERMISSION_WIDTH}x{self.PERMISSION_HEIGHT}")
+        
+        self._permission_dialog = ctk.CTkFrame(
+            self,
+            fg_color=self.BG_PRIMARY,
+            corner_radius=0
+        )
+        self._permission_dialog.place(relx=0, rely=0, relwidth=1, relheight=1)
+        self._permission_dialog.grid_columnconfigure(0, weight=1)
+        
+        title = ctk.CTkLabel(
+            self._permission_dialog,
+            text="⚠️  Permissions Required",
+            font=ctk.CTkFont(size=16, weight="bold"),
+            text_color=self.WARNING
+        )
+        title.grid(row=0, column=0, pady=(30, 15))
+        
+        msg = ctk.CTkLabel(
+            self._permission_dialog,
+            text="TextTyper needs two macOS permissions\nto simulate keyboard typing:",
+            font=ctk.CTkFont(size=12),
+            text_color=self.TEXT_SECONDARY,
+            justify="center"
+        )
+        msg.grid(row=1, column=0, padx=20, pady=(0, 15))
+        
+        perm_frame = ctk.CTkFrame(self._permission_dialog, fg_color="transparent")
+        perm_frame.grid(row=2, column=0, padx=20, pady=5)
+        perm_frame.grid_columnconfigure(1, weight=1)
+        
+        acc_label = ctk.CTkLabel(
+            perm_frame,
+            text="1. Accessibility",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=self.TEXT_PRIMARY,
+            anchor="w"
+        )
+        acc_label.grid(row=0, column=0, sticky="w", pady=3)
+        
+        acc_btn = ctk.CTkButton(
+            perm_frame,
+            text="Open Settings",
+            font=ctk.CTkFont(size=11),
+            fg_color=self.ACCENT,
+            hover_color=self.ACCENT_HOVER,
+            corner_radius=6,
+            height=28,
+            width=100,
+            command=on_open_accessibility
+        )
+        acc_btn.grid(row=0, column=1, padx=(15, 0), pady=3)
+        
+        input_label = ctk.CTkLabel(
+            perm_frame,
+            text="2. Input Monitoring",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=self.TEXT_PRIMARY,
+            anchor="w"
+        )
+        input_label.grid(row=1, column=0, sticky="w", pady=3)
+        
+        input_btn = ctk.CTkButton(
+            perm_frame,
+            text="Open Settings",
+            font=ctk.CTkFont(size=11),
+            fg_color=self.ACCENT,
+            hover_color=self.ACCENT_HOVER,
+            corner_radius=6,
+            height=28,
+            width=100,
+            command=on_open_input_monitoring
+        )
+        input_btn.grid(row=1, column=1, padx=(15, 0), pady=3)
+        
+        steps = ctk.CTkLabel(
+            self._permission_dialog,
+            text="After enabling both permissions:\nQuit and reopen TextTyper",
+            font=ctk.CTkFont(size=11),
+            text_color=self.TEXT_MUTED,
+            justify="center"
+        )
+        steps.grid(row=3, column=0, pady=(15, 15))
+        
+        quit_btn = ctk.CTkButton(
+            self._permission_dialog,
+            text="Quit TextTyper",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            fg_color="#ff5f57",
+            hover_color="#ff3b30",
+            corner_radius=8,
+            height=40,
+            width=160,
+            command=on_quit
+        )
+        quit_btn.grid(row=4, column=0, pady=(5, 25))
+
+    def hide_permission_dialog(self):
+        if self._permission_dialog is not None:
+            self._permission_dialog.destroy()
+            self._permission_dialog = None
+            self.geometry(f"{self.COLLAPSED_WIDTH}x{self.COLLAPSED_HEIGHT}")

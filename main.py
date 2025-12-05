@@ -1,10 +1,55 @@
+import sys
 import time
 import threading
+import subprocess
+import platform
+import os
+
+if platform.system() == "Darwin":
+    try:
+        from ApplicationServices import AXIsProcessTrusted
+    except ImportError:
+        AXIsProcessTrusted = None
+
 from pynput import keyboard
 
-from config import HOTKEY_COMBO, COUNTDOWN_SECONDS
+from config import HOTKEY_COMBO, COUNTDOWN_SECONDS, IS_MAC
 from gui.unified_window import UnifiedWindow
 from engine.typer import Typer
+
+def check_accessibility_permissions():
+    if not IS_MAC:
+        return True
+    
+    if AXIsProcessTrusted is None:
+        return True
+    
+    try:
+        return AXIsProcessTrusted()
+    except:
+        return True
+
+def open_accessibility_settings():
+    if not IS_MAC:
+        return
+    
+    try:
+        subprocess.run([
+            "open", "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+        ], check=False)
+    except:
+        pass
+
+def open_input_monitoring_settings():
+    if not IS_MAC:
+        return
+    
+    try:
+        subprocess.run([
+            "open", "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent"
+        ], check=False)
+    except:
+        pass
 
 class TextTyperApp:
     def __init__(self):
@@ -12,6 +57,7 @@ class TextTyperApp:
         self.typing_thread = None
         self.total_chars = 0
         self.start_time = 0
+        self._countdown_cancelled = False
         
         self.window = UnifiedWindow(
             on_start=self._on_start_typing,
@@ -20,18 +66,37 @@ class TextTyperApp:
             on_stop=self._on_stop
         )
         
+        self.window.after(300, self._check_permissions)
         self._setup_hotkey()
 
+    def _check_permissions(self):
+        if IS_MAC and not check_accessibility_permissions():
+            self.window.show_permission_dialog(
+                on_open_accessibility=open_accessibility_settings,
+                on_open_input_monitoring=open_input_monitoring_settings,
+                on_quit=self._quit_app
+            )
+
+    def _quit_app(self):
+        self.cleanup()
+        self.window.destroy()
+        sys.exit(0)
+
     def _setup_hotkey(self):
-        self.hotkey_listener = keyboard.GlobalHotKeys({
-            HOTKEY_COMBO: self._trigger_start
-        })
-        self.hotkey_listener.start()
+        try:
+            self.hotkey_listener = keyboard.GlobalHotKeys({
+                HOTKEY_COMBO: self._trigger_start
+            })
+            self.hotkey_listener.start()
+        except Exception as e:
+            print(f"Warning: Could not setup hotkey: {e}")
 
     def _trigger_start(self):
         self.window.after(0, self.window.trigger_start)
 
     def _on_start_typing(self, text, settings):
+        self._countdown_cancelled = False
+        
         self.typer = Typer(
             wpm=settings['wpm'],
             error_rate=settings['error_rate'],
@@ -53,10 +118,16 @@ class TextTyperApp:
     def _run_countdown(self, text):
         def countdown():
             for i in range(COUNTDOWN_SECONDS, 0, -1):
+                if self._countdown_cancelled:
+                    return
                 self.window.after(0, lambda s=i: self.window.show_countdown(s))
                 time.sleep(1)
             
+            if self._countdown_cancelled:
+                return
+                
             self.start_time = time.time()
+            self.window.after(0, self.window.hide_countdown)
             self.window.after(0, lambda: self.window.update_progress(0, self.total_chars, self.estimated_time))
             
             self.typing_thread = threading.Thread(target=self.typer.type_markdown, args=(text,))
@@ -86,6 +157,7 @@ class TextTyperApp:
             self.typer.resume()
 
     def _on_stop(self):
+        self._countdown_cancelled = True
         if self.typer:
             self.typer.cancel()
 
@@ -93,7 +165,10 @@ class TextTyperApp:
         self.window.mainloop()
 
     def cleanup(self):
-        self.hotkey_listener.stop()
+        try:
+            self.hotkey_listener.stop()
+        except:
+            pass
         if self.typer:
             self.typer.cancel()
 
