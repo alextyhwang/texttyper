@@ -1,10 +1,4 @@
-<table align="right" border="0">
-  <tr>
-    <td width="300px">
-      <img alt="Timing Analysis" width="290px" src="docs/textTyper.png" />
-    </td>
-  </tr>
-</table>
+<img align="right" alt="Timing Analysis" width="290px" src="docs/textTyper.png" />
 
 # TextTyper
 
