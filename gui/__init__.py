@@ -1,3 +1,2 @@
-from .main_window import MainWindow
-from .progress_overlay import ProgressOverlay
+from .unified_window import UnifiedWindow
 
