@@ -6,11 +6,9 @@ Some applications detect paste events. Some forms disable them entirely. And som
 
 ![Timing Analysis](docs/TextTyperGIF.gif)
 
-Some applications detect paste events. Some forms disable them entirely. And sometimes you just want text to appear character-by-character with human-like rhythm. TextTyper solves this by simulating actual keystrokes with the timing patterns of a real person typing.
-
 ## Mimicing Human-like Typing
 
-Real typing isn't uniform. Humans type in bursts, pause to think, make mistakes, and slow down over time. TextTyper replicates all of this:
+Real human typing isn't uniform. Humans type in bursts, pause to think, make mistakes, and slow down over time. TextTyper replicates all of this:
 
 | Behavior | Implementation |
 | :--- | :--- |
